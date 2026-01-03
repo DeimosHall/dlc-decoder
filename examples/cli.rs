@@ -3,7 +3,8 @@ extern crate dlc_decrypter;
 use std::env;
 use dlc_decrypter::DlcDecoder;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // Create the DlcDecoder
     let dd = DlcDecoder::new();
 
@@ -12,7 +13,7 @@ fn main() {
     // own name
     for arg in env::args().skip(1) {
         // hand over the file path
-        let dlc = dd.from_file(arg);
+        let dlc = dd.from_file(arg).await;
 
         // print the result
         println!("DLC: {:?}", dlc);
