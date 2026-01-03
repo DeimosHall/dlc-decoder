@@ -62,7 +62,7 @@ use std::ops::Deref;
 use std::fs::File;
 use std::str;
 use reqwest::Client;
-use reqwest::header::{Connection, UserAgent};
+use reqwest::header;
 use crypto::{buffer, aes, blockmodes };
 use crypto::buffer::{ ReadBuffer, WriteBuffer };
 use regex::Regex;
@@ -146,20 +146,20 @@ impl DlcDecoder {
     }
 
     /// Decrypt a specified .dlc file
-    pub fn from_file<P: Into<String>>(&self, path: P) -> Result<DlcPackage> {
+    pub async fn from_file<P: Into<String>>(&self, path: P) -> Result<DlcPackage> {
         // read the file
         let mut file = File::open(path.into())?;
         let mut data = Vec::new();
         file.read_to_end(&mut data)?;
 
         // return the decrypted dlc package
-        self.from_data(&data)
+        self.from_data(&data).await
     }
 
     /// Decrypt the contet of a .dlc file.
-    pub fn from_data(&self, data: &[u8]) -> Result<DlcPackage> {
+    pub async fn from_data(&self, data: &[u8]) -> Result<DlcPackage> {
         // decrypt the .dlc data
-        let data = self.decrypt_dlc(data)?;
+        let data = self.decrypt_dlc(data).await?;
 
         // parse the dlc header data
         let mut dlc = self.parse_header(&data)?;
@@ -172,7 +172,7 @@ impl DlcDecoder {
 
     /******************* Private Functions *****************/
     /// Decrypt the .dlc data to a plain String
-    fn decrypt_dlc(&self, data: &[u8]) -> Result<String> {
+    async fn decrypt_dlc(&self, data: &[u8]) -> Result<String> {
         // check if the file is to short to get the key out of it
         if data.len() <= 88 {
             bail!("Corrupted data");
@@ -182,7 +182,7 @@ impl DlcDecoder {
         let (data, key) = data.split_at(data.len() - 88);
 
         // get decrypten key
-        let key = self.get_jd_decryption_key(key)?;
+        let key = self.get_jd_decryption_key(key).await?;
 
         // decrypt the key
         let key = DlcDecoder::decrypt_raw_data(&key, &self.jd_decryption_key, &self.jd_decryption_iv)?;
@@ -236,19 +236,17 @@ impl DlcDecoder {
     }
 
     /// Download the decryption key for the .dlc container
-    fn get_jd_decryption_key(&self, key: &[u8]) -> Result<Vec<u8>> {
+    async fn get_jd_decryption_key(&self, key: &[u8]) -> Result<Vec<u8>> {
         // build the request url
         let url = format!("http://service.jdownloader.org/dlcrypt/service.php?srcType=dlc&destType={}&data={}", &self.jd_app_name, str::from_utf8(key)?);
 
         // build up the request
-        let mut res = Client::new().get(&url)
-            .header(Connection::close())
-            .header(UserAgent::new("Mozilla/5.3 (Windows; U; Windows NT 5.1; de; rv:1.8.1.6) Gecko/2232 Firefox/3.0.0.R"))
-            .send()?;
+        let res = Client::new().get(&url)
+            .header(header::CONNECTION, "close")
+            .header(header::USER_AGENT, "Mozilla/5.3 (Windows; U; Windows NT 5.1; de; rv:1.8.1.6) Gecko/2232 Firefox/3.0.0.R")
+            .send().await?;
 
-        // read the response
-        let mut key = Vec::new();
-        res.read_to_end(&mut key)?;
+        let key = res.bytes().await?.to_vec();
 
         // check if response is long enough
         if key.len() != 33 {
@@ -345,22 +343,22 @@ fn aes_cbc_decryptor<X: PaddingProcessor + Send + 'static>(
         key_size: KeySize,
         key: &[u8],
         iv: &[u8],
-        padding: X) -> Box<Decryptor + 'static> {
+        padding: X) -> Box<dyn Decryptor + 'static> {
     match key_size {
         KeySize::KeySize128 => {
             let aes_dec = aessafe::AesSafe128Decryptor::new(key);
             let dec = Box::new(CbcDecryptor::new(aes_dec, padding, iv.to_vec()));
-            dec as Box<Decryptor + 'static>
+            dec as Box<dyn Decryptor + 'static>
         }
         KeySize::KeySize192 => {
             let aes_dec = aessafe::AesSafe192Decryptor::new(key);
             let dec = Box::new(CbcDecryptor::new(aes_dec, padding, iv.to_vec()));
-            dec as Box<Decryptor + 'static>
+            dec as Box<dyn Decryptor + 'static>
         }
         KeySize::KeySize256 => {
             let aes_dec = aessafe::AesSafe256Decryptor::new(key);
             let dec = Box::new(CbcDecryptor::new(aes_dec, padding, iv.to_vec()));
-            dec as Box<Decryptor + 'static>
+            dec as Box<dyn Decryptor + 'static>
         }
     }
 }
