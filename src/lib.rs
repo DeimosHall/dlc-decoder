@@ -66,6 +66,8 @@ use reqwest::header;
 use crypto::{buffer, aes, blockmodes };
 use crypto::buffer::{ ReadBuffer, WriteBuffer };
 use regex::Regex;
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine as _;
 
 
 
@@ -188,11 +190,11 @@ impl DlcDecoder {
         let key = DlcDecoder::decrypt_raw_data(&key, &self.jd_decryption_key, &self.jd_decryption_iv)?;
 
         // decrypt the content
-        let data = base64::decode(data)?;
+        let data = BASE64.decode(data)?;
         let data = DlcDecoder::decrypt_raw_data(&data, key.deref(), key.deref())?;
         
         // format to text
-        let data = base64::decode(&data)?;
+        let data = BASE64.decode(&data)?;
         let data = String::from_utf8(data)?;
 
         return Ok(data);
@@ -254,7 +256,7 @@ impl DlcDecoder {
         };
 
         // remove <rc> and </rc>
-        let key = base64::decode(&key[4..28])?;
+        let key = BASE64.decode(&key[4..28])?;
 
         Ok(key)
     }
@@ -270,12 +272,12 @@ impl DlcDecoder {
         // extract the name
         let re = Regex::new(r#"name="([^"]*)"#)?;
         let t = re.find(&pck).ok_or("Can't find name in data")?;
-        dlc.name = String::from_utf8(base64::decode(&pck[t.start()+6..t.end()])?)?;
+        dlc.name = String::from_utf8(BASE64.decode(&pck[t.start()+6..t.end()])?)?;
         
         // extract the password - optional
         let re = Regex::new(r#"passwords="([^"]*)"#)?;
         if let Some(t) = re.find(&pck) {
-            dlc.password = String::from_utf8(base64::decode(&pck[t.start()+11..t.end()])?)?;
+            dlc.password = String::from_utf8(BASE64.decode(&pck[t.start()+11..t.end()])?)?;
         }
  
         Ok(dlc)
@@ -313,7 +315,7 @@ impl DlcDecoder {
     /// Get the files details
     fn file_details(&self, data: String, pos: usize) -> String {
         // try to decode the data
-        let buf: String = match base64::decode(&data[pos..]) {
+        let buf: String = match BASE64.decode(&data[pos..]) {
             Ok(x)  => {
                 match String::from_utf8(x) {
                     Ok(x)  => x,
