@@ -4,19 +4,19 @@ A simple library to decode dlc files to a readable format.
 
 ## Usage
 
-Add `dlc_decrypter` as a dependency in `Cargo.toml`:
+Add `dlc_decoder` as a dependency in `Cargo.toml`:
 
 ```toml
 [dependencies]
-dlc-decoder = "0.2.2"
+dlc-decoder = "0.3.0"
 ```
 
 Use the `dlc_decoder::DlcDecoder' to decrypt a .dlc file or datapackage:
 
 ```rust
-extern crate dlc_decrypter;
+extern crate dlc_decoder;
 
-use dlc_decrypter::DlcDecoder;
+use dlc_decoder::DlcDecoder;
 use std::env;
 
 fn main() {
@@ -28,7 +28,12 @@ fn main() {
         println!("DLC: {:?}", dlc);
     }
 }
+```
 
+Run the example of this repository with:
+
+```bash
+cargo run --example cli -- path/to/your/file.dlc
 ```
 
 ## Thanks

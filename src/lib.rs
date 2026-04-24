@@ -1,20 +1,20 @@
-//! A simple library to decode dlc files to a readable format.
+//! A library to decode dlc files to a readable format.
 //!
 //! ## Usage
 //! Add `dlc_decrypter` as a dependency in `Cargo.toml`:
 //!
 //! ```toml
 //! [dependencies]
-//! dlc-decrypter = "0.2.0"
+//! dlc-decrypter = "0.3.0"
 //! ```
 //!
-//! Use the `dlc_decrypter::DlcDecoder` to decrypt a .dlc file or datapackage:
+//! Use the `dlc_decoder::DlcDecoder` to decrypt a .dlc file or datapackage:
 //!
 //! ```rust
-//! extern crate dlc_decrypter;
+//! extern crate dlc_decoder;
 //!
 //! fn main() {
-//!     let decoder = dlc_decrypter::DlcDecoder::new();
+//!     let decoder = dlc_decoder::DlcDecoder::new();
 //!     for arg in std::env::args().skip(1) {
 //!         let dlc = decoder.from_file(arg);
 //!         println!("DLC: {:?}", dlc);

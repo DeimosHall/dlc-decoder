@@ -1,10 +1,10 @@
 [package]
 name = "dlc-decoder"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2024"
-authors = ["Tobias Matt <t.matt81@gmail.com>"]
+authors = ["Deimos Hall <deimoshall.dev@proton.me>", "Tobias Matt <t.matt81@gmail.com>"]
 license = "MIT"
-repository = "https://github.com/Bubblepoint/dlc-decoder"
+repository = "https://github.com/DeimosHall/dlc-decoder/"
 description = "A decoder library for dlc files"
 
 [dependencies]
