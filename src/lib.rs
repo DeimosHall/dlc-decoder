@@ -253,7 +253,7 @@ impl DlcDecoder {
             .header(header::CONNECTION, "close")
             .header(
                 header::USER_AGENT,
-                "Mozilla/5.3 (Windows; U; Windows NT 5.1; de; rv:1.8.1.6) Gecko/2232 Firefox/3.0.0.R",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
             )
             .send()?;
         let key = res.bytes()?.to_vec();
