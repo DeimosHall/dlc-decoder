@@ -52,6 +52,7 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use crypto::buffer::{ReadBuffer, WriteBuffer};
 use crypto::{aes, blockmodes, buffer};
 use regex::Regex;
+use reqwest::Url;
 use reqwest::blocking::Client;
 use reqwest::header;
 use std::fs::File;
@@ -162,21 +163,33 @@ impl DlcDecoder {
             bail!("Corrupted data");
         };
 
-        let (data, key) = data.split_at(data.len() - 88);
+        let (payload, key_tail) = data.split_at(data.len() - 88);
 
         // get decrypten key
-        let key = self.get_jd_decryption_key(key)?;
+        let server_key = self.get_jd_decryption_key(key_tail)?;
 
         // decrypt the key
-        let key =
-            DlcDecoder::decrypt_raw_data(&key, &self.jd_decryption_key, &self.jd_decryption_iv)?;
+        let content_key = DlcDecoder::decrypt_raw_data(
+            &server_key,
+            &self.jd_decryption_key,
+            &self.jd_decryption_iv,
+        )?;
 
         // decrypt the content
-        let data = BASE64.decode(data)?;
-        let data = DlcDecoder::decrypt_raw_data(&data, key.deref(), key.deref())?;
+        let payload_raw = BASE64.decode(payload).map_err(|e| {
+            Error::new(error::ErrorKind::Msg(format!(
+                "base64 decode payload: {}",
+                e
+            )))
+        })?;
+
+        let decrypted =
+            DlcDecoder::decrypt_raw_data(&payload_raw, content_key.deref(), content_key.deref())?;
 
         // format to text
-        let data = BASE64.decode(&data)?;
+        let data = BASE64
+            .decode(&decrypted)
+            .map_err(|e| Error::new(error::ErrorKind::Msg(format!("base64 decode xml: {}", e))))?;
         let data = String::from_utf8(data)?;
         Ok(data)
     }
@@ -211,23 +224,32 @@ impl DlcDecoder {
             result.extend_from_slice(writ_buffer.take_read_buffer().take_remaining());
         }
 
-        // remove tailing zeros
-        result.retain(|x| *x != 0);
+        // remove trailing zeros and spaces (zero-padding & space-padding used in DLC protocol)
+        while let Some(&b) = result.last() {
+            if b == 0 || b == b' ' {
+                result.pop();
+            } else {
+                break;
+            }
+        }
         Ok(result)
     }
 
     /// Download the decryption key for the .dlc container
     fn get_jd_decryption_key(&self, key: &[u8]) -> Result<Vec<u8>> {
-        // build the request url
-        let url = format!(
-            "http://service.jdownloader.org/dlcrypt/service.php?srcType=dlc&destType={}&data={}",
-            &self.jd_app_name,
-            str::from_utf8(key)?
-        );
+        // build the request url with proper URL-encoding
+        let url = Url::parse_with_params(
+            "http://service.jdownloader.org/dlcrypt/service.php",
+            &[
+                ("srcType", "dlc"),
+                ("destType", self.jd_app_name.as_str()),
+                ("data", str::from_utf8(key)?),
+            ],
+        )
+        .map_err(|e| Error::new(error::ErrorKind::Msg(format!("URL parse error: {}", e))))?;
 
-        // build up the request
         let res = Client::new()
-            .get(&url)
+            .get(url)
             .header(header::CONNECTION, "close")
             .header(
                 header::USER_AGENT,
