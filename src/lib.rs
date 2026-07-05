@@ -149,24 +149,24 @@ impl DlcDecoder {
 
     /// Decrypt the content of a .dlc file.
     pub fn from_data(&self, data: &[u8]) -> Result<DlcPackage> {
-        let data = self.decrypt_dlc(data)?;
-        let mut dlc = self.parse_header(&data)?;
-        self.parse_body(&mut dlc, &data)?;
+        // Check if the file is to short to get the key out of it
+        if data.len() <= 88 {
+            bail!("Corrupted data")
+        }
+
+        let key = &data[data.len() - 88..data.len()];
+        let server_key = self.server_key(key)?;
+        let decrypted_data = self.decrypt_dlc(data, server_key)?;
+        let mut dlc = self.parse_header(&decrypted_data)?;
+
+        self.parse_body(&mut dlc, &decrypted_data)?;
         Ok(dlc)
     }
 
     /******************* Private Functions *****************/
     /// Decrypt the .dlc data to a plain String
-    fn decrypt_dlc(&self, data: &[u8]) -> Result<String> {
-        // check if the file is to short to get the key out of it
-        if data.len() <= 88 {
-            bail!("Corrupted data");
-        };
-
-        let (payload, key_tail) = data.split_at(data.len() - 88);
-
-        // get decrypten key
-        let server_key = self.get_jd_decryption_key(key_tail)?;
+    fn decrypt_dlc(&self, data: &[u8], server_key: Vec<u8>) -> Result<String> {
+        let payload = &data[0..data.len() - 88];
 
         // decrypt the key
         let content_key = DlcDecoder::decrypt_raw_data(
@@ -236,7 +236,8 @@ impl DlcDecoder {
     }
 
     /// Download the decryption key for the .dlc container
-    fn get_jd_decryption_key(&self, key: &[u8]) -> Result<Vec<u8>> {
+    /// from the JDownloader service
+    fn server_key(&self, key: &[u8]) -> Result<Vec<u8>> {
         // build the request url with proper URL-encoding
         let url = Url::parse_with_params(
             "http://service.jdownloader.org/dlcrypt/service.php",
