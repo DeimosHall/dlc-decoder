@@ -22,6 +22,9 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Install system dependencies
+        run: dnf install -y gcc
+
       - name: Rust format
         run: cargo fmt --all --check
 
@@ -30,3 +33,4 @@ jobs:
 
       - name: Rust build
         run: cargo check
+
