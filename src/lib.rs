@@ -119,6 +119,12 @@ pub struct DlcDecoder {
     jd_decryption_iv: Vec<u8>,
 }
 
+impl Default for DlcDecoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DlcDecoder {
     /// Create a new DlcDecoder with a standard login to jdownloader.
     pub fn new() -> DlcDecoder {
@@ -277,20 +283,20 @@ impl DlcDecoder {
         // get the package information
         let re = Regex::new(r"<package ([^>]*)")?;
         let pck = re
-            .find(&data)
+            .find(data)
             .ok_or_else(|| Error::from("Can't find package in data"))?
             .as_str();
 
         // extract the name
         let re = Regex::new(r#"name="([^"]*)"#)?;
         let t = re
-            .find(&pck)
+            .find(pck)
             .ok_or_else(|| Error::from("Can't find name in data"))?;
         dlc.name = String::from_utf8(BASE64.decode(&pck[t.start() + 6..t.end()])?)?;
 
         // extract the password - optional
         let re = Regex::new(r#"passwords="([^"]*)"#)?;
-        if let Some(t) = re.find(&pck) {
+        if let Some(t) = re.find(pck) {
             dlc.password = String::from_utf8(BASE64.decode(&pck[t.start() + 11..t.end()])?)?;
         }
         Ok(dlc)
@@ -308,13 +314,13 @@ impl DlcDecoder {
             let details: Vec<&str> = f.split("<").collect();
             let mut link = DlcLink::new();
             for d in details {
-                if d.len() > 3 && d[..3] == "url".to_string() {
+                if d.len() > 3 && d[..3] == *"url" {
                     let buf = self.file_details(d.to_string(), 4);
                     link.url = buf;
-                } else if d.len() > 8 && d[..8] == "filename".to_string() {
+                } else if d.len() > 8 && d[..8] == *"filename" {
                     let buf = self.file_details(d.to_string(), 9);
                     link.name = buf;
-                } else if d.len() > 4 && d[..4] == "size".to_string() {
+                } else if d.len() > 4 && d[..4] == *"size" {
                     let buf = self.file_details(d.to_string(), 5);
                     link.size = buf;
                 }
