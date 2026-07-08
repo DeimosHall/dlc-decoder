@@ -13,11 +13,14 @@
 //! ```rust
 //! extern crate dlc_decoder;
 //!
+//! use dlc_decoder::DlcDecoder;
+//! use std::env;
+//!
 //! fn main() {
 //!     let decoder = dlc_decoder::DlcDecoder::new();
 //!     for arg in std::env::args().skip(1) {
-//!         let dlc = decoder.from_file(arg);
-//!         println!("DLC: {:?}", dlc);
+//!         let dlc_package = decoder.from_file(arg);
+//!         dbg!(dlc_package.unwrap());
 //!     }
 //! }
 //! ```
@@ -149,24 +152,24 @@ impl DlcDecoder {
 
     /// Decrypt the content of a .dlc file.
     pub fn from_data(&self, data: &[u8]) -> Result<DlcPackage> {
-        let data = self.decrypt_dlc(data)?;
-        let mut dlc = self.parse_header(&data)?;
-        self.parse_body(&mut dlc, &data)?;
-        Ok(dlc)
+        // Check if the file is to short to get the key out of it
+        if data.len() <= 88 {
+            bail!("Corrupted data")
+        }
+
+        let key = &data[data.len() - 88..data.len()];
+        let server_key = self.server_key(key)?;
+        let decrypted_data = self.decrypt_dlc(data, server_key)?;
+        let mut dlc_package = self.parse_header(&decrypted_data)?;
+
+        self.parse_body(&mut dlc_package, &decrypted_data)?;
+        Ok(dlc_package)
     }
 
     /******************* Private Functions *****************/
     /// Decrypt the .dlc data to a plain String
-    fn decrypt_dlc(&self, data: &[u8]) -> Result<String> {
-        // check if the file is to short to get the key out of it
-        if data.len() <= 88 {
-            bail!("Corrupted data");
-        };
-
-        let (payload, key_tail) = data.split_at(data.len() - 88);
-
-        // get decrypten key
-        let server_key = self.get_jd_decryption_key(key_tail)?;
+    fn decrypt_dlc(&self, data: &[u8], server_key: Vec<u8>) -> Result<String> {
+        let payload = &data[0..data.len() - 88];
 
         // decrypt the key
         let content_key = DlcDecoder::decrypt_raw_data(
@@ -236,7 +239,8 @@ impl DlcDecoder {
     }
 
     /// Download the decryption key for the .dlc container
-    fn get_jd_decryption_key(&self, key: &[u8]) -> Result<Vec<u8>> {
+    /// from the JDownloader service
+    fn server_key(&self, key: &[u8]) -> Result<Vec<u8>> {
         // build the request url with proper URL-encoding
         let url = Url::parse_with_params(
             "http://service.jdownloader.org/dlcrypt/service.php",
@@ -253,7 +257,7 @@ impl DlcDecoder {
             .header(header::CONNECTION, "close")
             .header(
                 header::USER_AGENT,
-                "Mozilla/5.3 (Windows; U; Windows NT 5.1; de; rv:1.8.1.6) Gecko/2232 Firefox/3.0.0.R",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
             )
             .send()?;
         let key = res.bytes()?.to_vec();
@@ -368,6 +372,55 @@ fn aes_cbc_decryptor<X: PaddingProcessor + Send + 'static>(
             let aes_dec = aessafe::AesSafe256Decryptor::new(key);
             let dec = Box::new(CbcDecryptor::new(aes_dec, padding, iv.to_vec()));
             dec as Box<dyn Decryptor + 'static>
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::vec;
+
+    use super::*;
+
+    #[test]
+    fn test_decrypt_dlc() {
+        let dlc_content = include_bytes!("tests/data/SUCCESS.dlc");
+
+        let server_key = vec![
+            169, 18, 52, 208, 96, 95, 24, 128, 148, 144, 70, 220, 65, 52, 105, 80,
+        ];
+
+        let decoder = DlcDecoder::new();
+        let decrypted_content = decoder
+            .decrypt_dlc(dlc_content, server_key)
+            .expect("Unable to decrypt dlc");
+        let mut dlc_package = decoder
+            .parse_header(&decrypted_content)
+            .expect("Unable to parse header");
+
+        decoder
+            .parse_body(&mut dlc_package, &decrypted_content)
+            .expect("Unable to parse body");
+
+        let expected_urls: Vec<String> = vec![
+            String::from("https://mega.nz/file/i4y3MKOtoQSeWOCFMIbwCd7o4yXbDDqZJLJl17ds00xCNYQmI"),
+            String::from("https://mega.nz/file/sf6o93QHXIolzFEXhW5k6psty85iyQowgs2RWpgCMrPEYWvCx"),
+            String::from("https://mega.nz/file/SL5ZZLhMwhAipYHsqpY4BAIP0amtohCY3yJQgmTYXuX7SmkzC"),
+        ];
+
+        let actual_urls: Vec<String> = dlc_package
+            .files
+            .iter()
+            .map(|link| link.url.clone())
+            .collect();
+
+        assert_eq!(3, actual_urls.len());
+
+        for index in 0..2 {
+            assert_eq!(
+                expected_urls.get(index).unwrap(),
+                actual_urls.get(index).unwrap()
+            );
         }
     }
 }
