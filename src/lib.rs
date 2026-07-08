@@ -157,10 +157,10 @@ impl DlcDecoder {
         let key = &data[data.len() - 88..data.len()];
         let server_key = self.server_key(key)?;
         let decrypted_data = self.decrypt_dlc(data, server_key)?;
-        let mut dlc = self.parse_header(&decrypted_data)?;
+        let mut dlc_package = self.parse_header(&decrypted_data)?;
 
-        self.parse_body(&mut dlc, &decrypted_data)?;
-        Ok(dlc)
+        self.parse_body(&mut dlc_package, &decrypted_data)?;
+        Ok(dlc_package)
     }
 
     /******************* Private Functions *****************/
@@ -369,6 +369,55 @@ fn aes_cbc_decryptor<X: PaddingProcessor + Send + 'static>(
             let aes_dec = aessafe::AesSafe256Decryptor::new(key);
             let dec = Box::new(CbcDecryptor::new(aes_dec, padding, iv.to_vec()));
             dec as Box<dyn Decryptor + 'static>
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::vec;
+
+    use super::*;
+
+    #[test]
+    fn test_decrypt_dlc() {
+        let dlc_content = include_bytes!("tests/data/SUCCESS.dlc");
+
+        let server_key = vec![
+            169, 18, 52, 208, 96, 95, 24, 128, 148, 144, 70, 220, 65, 52, 105, 80,
+        ];
+
+        let decoder = DlcDecoder::new();
+        let decrypted_content = decoder
+            .decrypt_dlc(dlc_content, server_key)
+            .expect("Unable to decrypt dlc");
+        let mut dlc_package = decoder
+            .parse_header(&decrypted_content)
+            .expect("Unable to parse header");
+
+        decoder
+            .parse_body(&mut dlc_package, &decrypted_content)
+            .expect("Unable to parse body");
+
+        let expected_urls: Vec<String> = vec![
+            String::from("https://mega.nz/file/i4y3MKOtoQSeWOCFMIbwCd7o4yXbDDqZJLJl17ds00xCNYQmI"),
+            String::from("https://mega.nz/file/sf6o93QHXIolzFEXhW5k6psty85iyQowgs2RWpgCMrPEYWvCx"),
+            String::from("https://mega.nz/file/SL5ZZLhMwhAipYHsqpY4BAIP0amtohCY3yJQgmTYXuX7SmkzC"),
+        ];
+
+        let actual_urls: Vec<String> = dlc_package
+            .files
+            .iter()
+            .map(|link| link.url.clone())
+            .collect();
+
+        assert_eq!(3, actual_urls.len());
+
+        for index in 0..2 {
+            assert_eq!(
+                expected_urls.get(index).unwrap(),
+                actual_urls.get(index).unwrap()
+            );
         }
     }
 }
