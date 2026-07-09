@@ -1,4 +1,4 @@
-# dlc-decrypter
+# dlc-decoder
 
 A simple library to decode dlc files to a readable format.
 
@@ -8,7 +8,7 @@ Add `dlc_decoder` as a dependency in `Cargo.toml`:
 
 ```toml
 [dependencies]
-dlc-decoder = "0.3.0"
+dlc-decoder = "0.3.1"
 ```
 
 Use the `dlc_decoder::DlcDecoder' to decrypt a .dlc file or datapackage:
@@ -23,9 +23,8 @@ fn main() {
     let decoder = DlcDecoder::new();
 
     for arg in env::args().skip(1) {
-        let dlc = decoder.from_file(arg);
-
-        println!("DLC: {:?}", dlc);
+        let dlc_package = decoder.from_file(arg);
+        dbg!(dlc_package.unwrap());
     }
 }
 ```
@@ -36,9 +35,13 @@ Run the example of this repository with:
 cargo run --example cli -- path/to/your/file.dlc
 ```
 
-## Thanks
+## Credits
 
-* [Bubblepoint](https://github.com/Bubblepoint) for creating and maintaing the crate.
+Maintained by [Deimos Hall](https://deimoshall.dev/).
+
+**Thanks**
+
+* [Bubblepoint](https://github.com/Bubblepoint) for creating the crate.
 * [Robert Sch&uuml;tte](https://github.com/Roba1993) for doing a great refactoring.
 
 ## License
