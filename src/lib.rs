@@ -5,7 +5,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! dlc-decrypter = "0.3.0"
+//! dlc-decrypter = "0.3.1"
 //! ```
 //!
 //! Use the `dlc_decoder::DlcDecoder` to decrypt a .dlc file or datapackage:
