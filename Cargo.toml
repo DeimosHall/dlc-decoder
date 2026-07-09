@@ -1,6 +1,6 @@
 [package]
 name = "dlc-decoder"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2024"
 authors = ["Deimos Hall <deimoshall.dev@proton.me>", "Tobias Matt <t.matt81@gmail.com>"]
 license = "MIT"
