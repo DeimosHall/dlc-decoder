@@ -8,7 +8,7 @@ Add `dlc_decoder` as a dependency in `Cargo.toml`:
 
 ```toml
 [dependencies]
-dlc-decoder = "0.3.1"
+dlc-decoder = "0.3.2"
 ```
 
 Use the `dlc_decoder::DlcDecoder' to decrypt a .dlc file or datapackage:
@@ -34,6 +34,14 @@ Run the example of this repository with:
 ```bash
 cargo run --example cli -- path/to/your/file.dlc
 ```
+
+## GUI
+
+There's a Linux client for this crate. [Find it on Flathub](https://flathub.org/en/apps/dev.deimoshall.DecryptIt).
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/DeimosHall/decrypt-it/refs/heads/main/data/resources/screenshots/0.png" style="vertical-align: middle" />
+</p>
 
 ## Credits
 
