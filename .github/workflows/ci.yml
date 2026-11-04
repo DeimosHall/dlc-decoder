@@ -34,3 +34,6 @@ jobs:
       - name: Rust build
         run: cargo check
 
+      - name: Cargo test
+        run: cargo test
+
